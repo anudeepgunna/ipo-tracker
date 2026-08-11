@@ -1,0 +1,55 @@
+name: Poll IPOs
+
+# Cron is UTC; IST is UTC+5:30.
+#   04:00-12:45 UTC  ->  09:30-18:15 IST
+# That brackets NSE's IPO bidding window (10:00-17:00 IST) with margin either
+# side, so every alert slot is caught even if a run is delayed.
+#
+# GitHub may skip or delay scheduled runs under load. The alert engine's 3-hour
+# grace window absorbs that: a late run still fires the slot it lands in, and the
+# dedupe key stops it re-firing one already sent.
+on:
+  schedule:
+    - cron: "*/15 4-12 * * 1-5"
+    # One daily run at 05:00 IST keeps listing/allotment-day alerts working at
+    # weekends, when there is no bidding but dates still roll over.
+    - cron: "30 23 * * 0,6"
+  workflow_dispatch:
+
+# A slow poll must never overlap the next one and double-write.
+concurrency:
+  group: poll-ipos
+  cancel-in-progress: false
+
+jobs:
+  poll:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger poll cycle
+        env:
+          API_URL: ${{ secrets.API_URL }}
+          INTERNAL_TASK_TOKEN: ${{ secrets.INTERNAL_TASK_TOKEN }}
+        run: |
+          if [ -z "$API_URL" ] || [ -z "$INTERNAL_TASK_TOKEN" ]; then
+            echo "::error::Set the API_URL and INTERNAL_TASK_TOKEN repository secrets."
+            exit 1
+          fi
+
+          # Render free instances sleep; the first request wakes them, so allow a
+          # generous connect timeout and retry rather than failing the run.
+          response=$(curl -sS --max-time 180 --retry 3 --retry-delay 20 \
+            --retry-all-errors \
+            -w "\n%{http_code}" \
+            -X POST "${API_URL%/}/internal/tasks/poll" \
+            -H "X-Internal-Token: $INTERNAL_TASK_TOKEN")
+
+          body=$(echo "$response" | sed '$d')
+          code=$(echo "$response" | tail -n1)
+
+          echo "HTTP $code"
+          echo "$body"
+
+          if [ "$code" != "200" ]; then
+            echo "::error::Poll failed with HTTP $code"
+            exit 1
+          fi

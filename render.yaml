@@ -1,0 +1,94 @@
+databases:
+  - name: ipo-tracker-db
+    databaseName: ipo
+    user: ipo
+    plan: free
+
+services:
+  # ----------------------------------------------------------------------- #
+  # API + poller
+  # ----------------------------------------------------------------------- #
+  - type: web
+    name: ipo-tracker-api
+    runtime: python
+    plan: free
+    rootDir: backend
+    buildCommand: pip install -e . && alembic upgrade head
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /health
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: ipo-tracker-db
+          property: connectionString
+      - key: PYTHON_VERSION
+        value: "3.12.7"
+      # Render hands out postgres://; SQLAlchemy's asyncpg driver needs the
+      # postgresql+asyncpg:// form. app/config.py normalises this at startup.
+      - key: SECRET_KEY
+        generateValue: true
+      - key: INTERNAL_TASK_TOKEN
+        generateValue: true
+      - key: APP_BASE_URL
+        value: https://ipo-tracker-web.onrender.com
+      - key: CORS_ORIGINS
+        value: https://ipo-tracker-web.onrender.com
+      # --- optional integrations: set these in the Render dashboard ---
+      - key: GMP_PROVIDER
+        value: none
+      - key: IPOGURU_API_KEY
+        sync: false
+      - key: RESEND_API_KEY
+        sync: false
+      - key: EMAIL_FROM
+        value: IPO Tracker <onboarding@resend.dev>
+      - key: TELEGRAM_BOT_TOKEN
+        sync: false
+      - key: VAPID_PUBLIC_KEY
+        sync: false
+      - key: VAPID_PRIVATE_KEY
+        sync: false
+      - key: VAPID_SUBJECT
+        sync: false
+
+  # ----------------------------------------------------------------------- #
+  # Dashboard
+  # ----------------------------------------------------------------------- #
+  - type: web
+    name: ipo-tracker-web
+    runtime: static
+    rootDir: frontend
+    buildCommand: npm ci && npm run build
+    staticPublishPath: dist
+    envVars:
+      - key: VITE_API_BASE
+        value: https://ipo-tracker-api.onrender.com
+    routes:
+      # SPA fallback so deep links like /ipo/SHIPROCKET resolve.
+      - type: rewrite
+        source: /*
+        destination: /index.html
+
+# --------------------------------------------------------------------------- #
+# Scheduling
+#
+# The poller is driven by .github/workflows/poll.yml, which POSTs to
+# /internal/tasks/poll. That is free, and it also wakes the web service, which
+# Render spins down on the free plan.
+#
+# On a paid plan you can replace it with a native cron job instead:
+#
+#   - type: cron
+#     name: ipo-tracker-poller
+#     runtime: python
+#     plan: starter
+#     rootDir: backend
+#     schedule: "*/15 4-12 * * 1-5"   # every 15 min, ~10:00-17:30 IST
+#     buildCommand: pip install -e .
+#     startCommand: python -m app.tasks.poll
+#     envVars:
+#       - key: DATABASE_URL
+#         fromDatabase:
+#           name: ipo-tracker-db
+#           property: connectionString
+# --------------------------------------------------------------------------- #

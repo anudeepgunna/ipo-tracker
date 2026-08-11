@@ -1,0 +1,20 @@
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: ipo-tracker-db
+    environment:
+      POSTGRES_USER: ipo
+      POSTGRES_PASSWORD: ipo
+      POSTGRES_DB: ipo
+    ports:
+      - "5433:5432"
+    volumes:
+      - ipo_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ipo -d ipo"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  ipo_pgdata:
