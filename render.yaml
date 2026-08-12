@@ -1,3 +1,7 @@
+# Note: Render permits only one free Postgres per account. If yours is already
+# used by another service, drop this block and point DATABASE_URL at an external
+# Postgres (Neon, Supabase) instead — their free tiers also avoid the 30-day
+# expiry Render puts on free databases.
 databases:
   - name: ipo-tracker-db
     databaseName: ipo
@@ -13,8 +17,12 @@ services:
     runtime: python
     plan: free
     rootDir: backend
-    buildCommand: pip install -e . && alembic upgrade head
-    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    buildCommand: pip install -e .
+    # Migrations run at start, not at build. Render's build environment cannot
+    # always reach the database, and an external Postgres definitely isn't
+    # reachable from it — so a build that migrates fails for the wrong reason.
+    # `alembic upgrade head` is idempotent, so re-running it per boot is safe.
+    startCommand: alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port $PORT
     healthCheckPath: /health
     envVars:
       - key: DATABASE_URL
