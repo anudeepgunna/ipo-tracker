@@ -68,9 +68,29 @@ SQLite is fine for development; Postgres is the deployment target.
 
 ### Signing in
 
-Auth is a passwordless magic link. Without `RESEND_API_KEY` set, the server returns the
-link in the response (and logs it) instead of emailing it, so local development is never
+**Google sign-in** is the primary route, because it takes the mail provider out of the
+login path entirely. This matters more than it sounds: transactional email services cap
+free accounts at delivering to the account owner's own address until a sending domain is
+verified, so a magic-link-only app is single-user in practice no matter how many accounts
+it supports.
+
+Set `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` from a Google Cloud OAuth client, and
+register this exact redirect URI on it:
+
+```
+<API_BASE_URL>/api/auth/google/callback
+```
+
+**Magic links** remain as a fallback. Without `RESEND_API_KEY` the server returns the link
+in the response (and logs it) rather than emailing it, so local development is never
 locked out.
+
+If mail breaks in production and nobody can get in, mint a link out-of-band:
+
+```bash
+curl -X POST "$API/internal/auth/link?email=you@example.com" \
+  -H "X-Internal-Token: $INTERNAL_TASK_TOKEN"
+```
 
 ## Setting up alerts
 
@@ -92,6 +112,13 @@ python -m app.cli test-notify you@example.com   # verify each channel actually d
 ```
 
 ### How firing works
+
+Per-IPO reminders are set from the bell on any IPO card, with three cadences: **on the
+last day**, **the day before it closes**, or **once a day for the whole window**. The
+daily cadence escalates its wording as the deadline nears ("2 days left" → "closes
+tomorrow" → "LAST DAY") and still honours the cutoff below. Threshold rules
+(`GMP_ABOVE`, `SUBSCRIPTION_ABOVE`) and lifecycle rules (`OPEN_DAY`, `ALLOTMENT_DAY`,
+`LISTING_DAY`) are configured on the Alerts page.
 
 A date rule declares the IST hours it fires at. A slot fires when the current time falls
 inside `[hour, hour + 3h)`. That window does two jobs: with a 15-minute poll every slot
@@ -130,7 +157,7 @@ commented-out native cron block for when you upgrade.
 ## Testing
 
 ```bash
-cd backend && .venv/bin/python -m pytest      # 62 tests
+cd backend && .venv/bin/python -m pytest      # 94 tests
 ```
 
 Parser tests run against **real NSE payloads** captured in `tests/fixtures/`, so they
