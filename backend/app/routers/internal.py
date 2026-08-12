@@ -64,6 +64,6 @@ async def mint_magic_link(email: str, session: AsyncSession = Depends(get_sessio
 
     return {
         "email": address,
-        "login_url": f"{settings.app_base_url}/auth/verify?token={raw}",
+        "login_url": settings.app_url(f"/auth/verify?token={raw}"),
         "expires_in_minutes": settings.magic_link_ttl_minutes,
     }

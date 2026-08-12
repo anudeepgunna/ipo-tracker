@@ -294,7 +294,9 @@ async def test_alert_body_carries_what_you_need_to_act(session):
     assert "154" in note.body  # lot size
     assert "14,938" in note.body  # 154 shares x Rs.97 cap = one lot
     assert "not investment advice" in note.body
-    assert note.url.endswith("/ipo/SHIPROCKET")
+    # Hash-routed: a plain /ipo/... path 404s on a static host with no rewrite
+    # rule, which would make every alert link dead.
+    assert note.url.endswith("/#/ipo/SHIPROCKET")
 
 
 @pytest.mark.parametrize(

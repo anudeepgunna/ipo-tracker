@@ -102,6 +102,28 @@ def test_samesite_can_be_forced():
     assert settings.cookie_samesite == "lax"
 
 
+@pytest.mark.parametrize(
+    ("path", "expected"),
+    [
+        ("/ipo/SHIPROCKET", "https://app.example/#/ipo/SHIPROCKET"),
+        ("ipo/SHIPROCKET", "https://app.example/#/ipo/SHIPROCKET"),  # leading slash added
+        ("/auth/verify?token=abc", "https://app.example/#/auth/verify?token=abc"),
+    ],
+)
+def test_app_url_is_hash_routed(path, expected):
+    """Outbound links must survive a static host with no rewrite rule.
+
+    A plain /auth/verify path 404s there, which would break sign-in entirely.
+    """
+    settings = Settings(app_base_url="https://app.example", _env_file=None)
+    assert settings.app_url(path) == expected
+
+
+def test_app_url_tolerates_trailing_slash():
+    settings = Settings(app_base_url="https://app.example/", _env_file=None)
+    assert settings.app_url("/inbox") == "https://app.example/#/inbox"
+
+
 def test_cors_origins_split():
     settings = Settings(
         cors_origins="https://a.example , https://b.example,", _env_file=None

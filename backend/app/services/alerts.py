@@ -179,7 +179,7 @@ async def _queue(
     if not channels:
         return 0
 
-    url = f"{settings.app_base_url}/ipo/{ipo.symbol}"
+    url = settings.app_url(f"/ipo/{ipo.symbol}")
     queued = 0
 
     for channel in channels:

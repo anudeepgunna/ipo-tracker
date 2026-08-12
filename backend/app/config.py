@@ -106,6 +106,17 @@ class Settings(BaseSettings):
     def cors_origin_list(self) -> list[str]:
         return [o.strip() for o in self.cors_origins.split(",") if o.strip()]
 
+    def app_url(self, path: str) -> str:
+        """Build a link into the SPA.
+
+        The dashboard is hash-routed, so every in-app path lives after a `#`.
+        That keeps deep links - magic-link sign-in above all - working on any
+        static host without a server-side rewrite rule, which several hosts
+        (Render included) only expose through their dashboard rather than an
+        API. Every outbound link is built here so the two can't drift apart.
+        """
+        return f"{self.app_base_url.rstrip('/')}/#{path if path.startswith('/') else '/' + path}"
+
     @property
     def cookie_samesite(self) -> str:
         """SameSite policy for the session cookie.

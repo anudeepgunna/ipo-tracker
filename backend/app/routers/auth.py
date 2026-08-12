@@ -45,7 +45,7 @@ async def request_link(
     )
     await session.commit()
 
-    link = f"{settings.app_base_url}/auth/verify?token={raw}"
+    link = settings.app_url(f"/auth/verify?token={raw}")
     notifier = EmailNotifier()
 
     if not notifier.configured:
