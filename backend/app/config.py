@@ -1,6 +1,7 @@
 """Application settings, loaded from the environment."""
 
 from functools import lru_cache
+from urllib.parse import urlparse
 from zoneinfo import ZoneInfo
 
 from pydantic import field_validator
@@ -10,6 +11,12 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 # in IST. We store UTC and convert at the edges; this is the only timezone the
 # domain logic should ever reference.
 IST = ZoneInfo("Asia/Kolkata")
+
+# libpq connection parameters that managed Postgres providers append to their
+# connection strings and that asyncpg rejects outright.
+_LIBPQ_ONLY_PARAMS = frozenset(
+    {"channel_binding", "sslcert", "sslkey", "sslrootcert", "gssencmode", "target_session_attrs"}
+)
 
 
 class Settings(BaseSettings):
@@ -28,6 +35,9 @@ class Settings(BaseSettings):
     secret_key: str = "dev-secret-change-me"
     magic_link_ttl_minutes: int = 15
     session_ttl_days: int = 30
+    # "auto" derives SameSite from whether the SPA and API share a site; set
+    # "lax"/"none"/"strict" to force it.
+    session_cookie_samesite: str = "auto"
 
     # --- Internal task endpoint ---
     # The GitHub Actions cron presents this in X-Internal-Token to trigger a poll.
@@ -53,16 +63,73 @@ class Settings(BaseSettings):
         Render (and Heroku, Railway, Fly) expose `postgres://...`, which
         SQLAlchemy will not route to asyncpg. Rewriting here means the platform's
         generated connection string can be used verbatim.
+        Managed providers also append libpq connection parameters that asyncpg
+        does not accept - `sslmode` above all, which Neon and Supabase always
+        include. Left in place it raises `unexpected keyword argument 'sslmode'`
+        on the first connect, so it is translated to asyncpg's `ssl` equivalent
+        rather than dropped: these hosts require TLS.
         """
         if value.startswith("postgres://"):
-            return "postgresql+asyncpg://" + value[len("postgres://") :]
-        if value.startswith("postgresql://"):
-            return "postgresql+asyncpg://" + value[len("postgresql://") :]
-        return value
+            value = "postgresql+asyncpg://" + value[len("postgres://") :]
+        elif value.startswith("postgresql://"):
+            value = "postgresql+asyncpg://" + value[len("postgresql://") :]
+
+        if "+asyncpg" not in value or "?" not in value:
+            return value
+
+        base, _, query = value.partition("?")
+        kept: list[str] = []
+        ssl_mode: str | None = None
+
+        for param in query.split("&"):
+            if not param:
+                continue
+            key, _, val = param.partition("=")
+            key_lower = key.lower()
+            if key_lower == "sslmode":
+                ssl_mode = val.lower()
+            elif key_lower in _LIBPQ_ONLY_PARAMS:
+                continue  # meaningless to asyncpg; would raise on connect
+            else:
+                kept.append(param)
+
+        if ssl_mode and ssl_mode != "disable":
+            # asyncpg understands require/prefer/disable; verify-* modes need a
+            # certificate bundle we don't ship, so treat them as plain require.
+            kept.append("ssl=require" if ssl_mode != "prefer" else "ssl=prefer")
+        elif ssl_mode == "disable":
+            kept.append("ssl=disable")
+
+        return f"{base}?{'&'.join(kept)}" if kept else base
 
     @property
     def cors_origin_list(self) -> list[str]:
         return [o.strip() for o in self.cors_origins.split(",") if o.strip()]
+
+    @property
+    def cookie_samesite(self) -> str:
+        """SameSite policy for the session cookie.
+
+        When the SPA and the API are served from different hosts - the normal
+        outcome of deploying them as two Render services - the browser treats
+        every API call as cross-site and silently discards a `Lax` cookie. The
+        failure is quiet and confusing: login succeeds, then every authenticated
+        request 401s. `None` is required there, and it is only honoured over
+        HTTPS, which `cookie_secure` enforces.
+        """
+        if self.session_cookie_samesite != "auto":
+            return self.session_cookie_samesite.lower()
+
+        app_host = urlparse(self.app_base_url).netloc.lower()
+        api_host = urlparse(self.api_base_url).netloc.lower()
+        # Same host (or a dev proxy making them same-origin) keeps the stricter
+        # default, which protects against CSRF.
+        return "lax" if not app_host or not api_host or app_host == api_host else "none"
+
+    @property
+    def cookie_secure(self) -> bool:
+        # SameSite=None without Secure is rejected outright by every browser.
+        return self.cookie_samesite == "none" or self.app_base_url.startswith("https")
 
 
 @lru_cache

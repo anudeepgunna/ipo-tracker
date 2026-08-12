@@ -83,8 +83,8 @@ async def verify(
         SESSION_COOKIE,
         issue_session(user),
         httponly=True,
-        samesite="lax",
-        secure=settings.app_base_url.startswith("https"),
+        samesite=settings.cookie_samesite,
+        secure=settings.cookie_secure,
         max_age=settings.session_ttl_days * 86400,
         path="/",
     )
