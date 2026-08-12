@@ -8,14 +8,27 @@ export function Login() {
   const [email, setEmail] = useState("");
   const [devLink, setDevLink] = useState<string | null>(null);
   const [sent, setSent] = useState(false);
+  const [failure, setFailure] = useState<string | null>(null);
 
   const request = useMutation({
     mutationFn: () => api.requestLink(email),
     onSuccess: (data) => {
-      setSent(true);
-      // Without an email provider configured the server hands back the link so
-      // local development isn't locked out.
+      // The endpoint returns HTTP 200 even when delivery fails, so success here
+      // means "the request was accepted", not "the mail was sent". Reporting
+      // "check your inbox" on `sent: false` sends people to wait for an email
+      // that will never arrive.
       setDevLink(data.dev_link ?? null);
+      if (data.sent || data.dev_link) {
+        setSent(true);
+        setFailure(null);
+      } else {
+        setSent(false);
+        setFailure(data.error ?? "The email could not be sent.");
+      }
+    },
+    onError: (e: Error) => {
+      setSent(false);
+      setFailure(e.message);
     },
   });
 
@@ -51,7 +64,14 @@ export function Login() {
             <a href={devLink}>{devLink}</a>
           </p>
         )}
-        {request.error && <p className="error">{(request.error as Error).message}</p>}
+        {failure && (
+          <div className="error">
+            <p style={{ margin: "8px 0 4px" }}>
+              <strong>The sign-in email could not be sent.</strong>
+            </p>
+            <p style={{ margin: 0 }}>{failure}</p>
+          </div>
+        )}
       </div>
     </div>
   );

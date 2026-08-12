@@ -67,11 +67,36 @@ async def request_link(
                 url=link,
             ),
         )
-    except Exception:
+    except Exception as exc:
         log.exception("auth: failed to send magic link")
-        return {"sent": False, "error": "Could not send the email. Try again shortly."}
+        return {"sent": False, "error": _delivery_hint(str(exc))}
 
     return {"sent": True}
+
+
+def _delivery_hint(error: str) -> str:
+    """Turn a provider rejection into something the operator can act on.
+
+    A generic "try again shortly" is actively misleading for a misconfiguration:
+    retrying will fail forever. The provider's own text is not echoed back,
+    because it names the account owner's address and this endpoint is
+    unauthenticated.
+    """
+    lowered = error.lower()
+
+    if "403" in lowered and ("verify a domain" in lowered or "testing emails" in lowered):
+        return (
+            "The mail provider only allows sending to the account owner's address "
+            "until a sending domain is verified. Verify a domain at resend.com/domains "
+            "and set EMAIL_FROM to an address on it — or sign in with the address that "
+            "owns the Resend account."
+        )
+    if "401" in lowered or "invalid api key" in lowered:
+        return "The mail provider rejected the API key. Check RESEND_API_KEY on the server."
+    if "422" in lowered or "domain is not verified" in lowered:
+        return "The sender address in EMAIL_FROM is not on a verified domain."
+
+    return "The mail provider could not deliver this message. Check the server logs."
 
 
 @router.post("/verify", response_model=UserOut)

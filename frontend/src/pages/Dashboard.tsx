@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import { IpoCard } from "../components/IpoCard";
 import { api } from "../lib/api";
@@ -28,7 +28,24 @@ export function Dashboard({ user }: { user: User | null }) {
       }),
     // The poller writes at most every 15 minutes; refetching on focus is enough.
     refetchOnWindowFocus: true,
+    // A free Render instance sleeps when idle and can take ~50s to wake, often
+    // 502-ing on the way up. Retry generously so the first visit of the day
+    // recovers on its own instead of showing an error.
+    retry: 4,
+    retryDelay: (attempt) => Math.min(2000 * 2 ** attempt, 15000),
   });
+
+  // Distinguish "slow" from "broken": without this, a cold start looks identical
+  // to a failure for the better part of a minute.
+  const [slow, setSlow] = useState(false);
+  useEffect(() => {
+    if (!isLoading) {
+      setSlow(false);
+      return;
+    }
+    const timer = setTimeout(() => setSlow(true), 4000);
+    return () => clearTimeout(timer);
+  }, [isLoading]);
 
   const toggleWatch = useMutation({
     mutationFn: (ipo: Ipo) => (ipo.watchlisted ? api.removeWatch(ipo.id) : api.addWatch(ipo.id)),
@@ -86,8 +103,34 @@ export function Dashboard({ user }: { user: User | null }) {
         )}
       </div>
 
-      {isLoading && <div className="empty">Loading IPOs…</div>}
-      {error && <div className="empty">Could not load IPOs: {(error as Error).message}</div>}
+      {isLoading && (
+        <div className="empty">
+          {slow ? (
+            <>
+              <p style={{ margin: 0 }}>Waking the server…</p>
+              <p className="muted" style={{ marginTop: 6 }}>
+                The free instance sleeps when idle, so the first load of the day can take
+                up to a minute. Later loads are instant.
+              </p>
+            </>
+          ) : (
+            "Loading IPOs…"
+          )}
+        </div>
+      )}
+      {error && (
+        <div className="empty">
+          <p style={{ margin: 0 }}>Could not load IPOs.</p>
+          <p className="muted" style={{ marginTop: 6 }}>{(error as Error).message}</p>
+          <button
+            className="btn secondary small"
+            style={{ marginTop: 12 }}
+            onClick={() => queryClient.invalidateQueries({ queryKey: ["ipos"] })}
+          >
+            Retry
+          </button>
+        </div>
+      )}
 
       {data && data.length === 0 && (
         <div className="empty">
