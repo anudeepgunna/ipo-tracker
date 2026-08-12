@@ -265,11 +265,81 @@ async def evaluate_rules(session: AsyncSession, *, now: datetime | None = None) 
     return queued
 
 
+def _window_day_label(ipo: Ipo, today: date) -> str | None:
+    """Describe where `today` sits in the subscription window, or None if outside."""
+    if not ipo.close_date:
+        return None
+    days_left = (ipo.close_date - today).days
+    if days_left < 0:
+        return None
+    if days_left == 0:
+        return "closes today"
+    if days_left == 1:
+        return "closes tomorrow"
+    return f"{days_left} days left"
+
+
 async def _evaluate_one(
     session: AsyncSession, rule: AlertRule, now_ist: datetime, today: date
 ) -> int:
     queued = 0
     ipos = await _candidate_ipos(session, rule)
+
+    # ---- Recurring reminders across the subscription window ----
+    if rule.rule_type is RuleType.DAILY_UNTIL_CLOSE:
+        hours = [int(h) for h in (rule.fire_hours_ist or [10])]
+        for ipo in ipos:
+            if not ipo.open_date or not ipo.close_date:
+                continue
+            # Only while it is actually open to apply to.
+            if not (ipo.open_date <= today <= ipo.close_date):
+                continue
+            is_last_day = ipo.close_date == today
+            # On the final day the cutoff applies, exactly as for LAST_DAY.
+            cutoff = APPLICATION_CUTOFF_HOUR if is_last_day else None
+
+            for hour in hours:
+                if not _slot_is_live(now_ist, hour, cutoff=cutoff):
+                    continue
+                label = _window_day_label(ipo, today)
+                name = ipo.company_name or ipo.symbol
+                title = (
+                    f"Today is the LAST DAY to apply for {name}."
+                    if is_last_day
+                    else f"{name} is open — {label}."
+                )
+                body = await build_body(session, ipo, title)
+                queued += await _queue(
+                    session,
+                    rule=rule,
+                    ipo=ipo,
+                    dedupe_suffix=f"{today.isoformat()}:{hour}",
+                    title=title,
+                    body=body,
+                )
+        return queued
+
+    # ---- One day's warning before the window shuts ----
+    if rule.rule_type is RuleType.DAY_BEFORE_CLOSE:
+        hours = [int(h) for h in (rule.fire_hours_ist or [10])]
+        for ipo in ipos:
+            if not ipo.close_date or (ipo.close_date - today).days != 1:
+                continue
+            for hour in hours:
+                if not _slot_is_live(now_ist, hour):
+                    continue
+                name = ipo.company_name or ipo.symbol
+                title = f"{name} closes tomorrow — last chance to arrange funds."
+                body = await build_body(session, ipo, title)
+                queued += await _queue(
+                    session,
+                    rule=rule,
+                    ipo=ipo,
+                    dedupe_suffix=f"{today.isoformat()}:{hour}",
+                    title=title,
+                    body=body,
+                )
+        return queued
 
     # ---- Date-anchored rules ----
     if rule.rule_type in _DATE_RULES:

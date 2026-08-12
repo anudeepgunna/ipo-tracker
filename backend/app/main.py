@@ -8,7 +8,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import settings
-from app.routers import auth, internal, ipos, me, telegram
+from app.routers import auth, google_auth, internal, ipos, me, telegram
 
 logging.basicConfig(
     level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s"
@@ -35,6 +35,7 @@ app.add_middleware(
 
 app.include_router(ipos.router)
 app.include_router(auth.router)
+app.include_router(google_auth.router)
 app.include_router(me.router)
 app.include_router(telegram.router)
 app.include_router(internal.router)
@@ -61,4 +62,6 @@ async def public_config():
         },
         "vapid_public_key": settings.vapid_public_key or None,
         "gmp_provider": settings.gmp_provider,
+        "google_sign_in": bool(settings.google_client_id and settings.google_client_secret),
+        "api_base_url": settings.api_base_url,
     }

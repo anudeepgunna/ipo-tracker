@@ -2,8 +2,9 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 
 import { IpoCard } from "../components/IpoCard";
+import { ReminderDialog } from "../components/ReminderDialog";
 import { api } from "../lib/api";
-import type { Ipo, User } from "../lib/types";
+import type { Ipo, ServerConfig, User } from "../lib/types";
 
 const FILTERS = [
   { key: "OPEN", label: "Open now" },
@@ -12,11 +13,33 @@ const FILTERS = [
   { key: "", label: "All" },
 ];
 
-export function Dashboard({ user }: { user: User | null }) {
+export function Dashboard({
+  user,
+  config,
+}: {
+  user: User | null;
+  config: ServerConfig | undefined;
+}) {
   const [status, setStatus] = useState("OPEN");
   const [board, setBoard] = useState("");
   const [watchOnly, setWatchOnly] = useState(false);
+  const [search, setSearch] = useState("");
+  const [remindFor, setRemindFor] = useState<Ipo | null>(null);
+  const [toast, setToast] = useState<string | null>(null);
   const queryClient = useQueryClient();
+
+  useEffect(() => {
+    if (!toast) return;
+    const t = setTimeout(() => setToast(null), 2600);
+    return () => clearTimeout(t);
+  }, [toast]);
+
+  // Only signed-in users have rules; skip the request otherwise.
+  const rules = useQuery({
+    queryKey: ["rules"],
+    queryFn: api.rules,
+    enabled: !!user,
+  });
 
   const { data, isLoading, error } = useQuery({
     queryKey: ["ipos", status, board, watchOnly],
@@ -49,10 +72,29 @@ export function Dashboard({ user }: { user: User | null }) {
 
   const toggleWatch = useMutation({
     mutationFn: (ipo: Ipo) => (ipo.watchlisted ? api.removeWatch(ipo.id) : api.addWatch(ipo.id)),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["ipos"] }),
+    onSuccess: (_r, ipo) => {
+      queryClient.invalidateQueries({ queryKey: ["ipos"] });
+      setToast(ipo.watchlisted ? "Removed from watchlist" : "Added to watchlist");
+    },
   });
 
-  const lastDay = (data ?? []).filter((i) => i.is_last_day);
+  // Count reminders per IPO so the bell can show what's already set.
+  const rulesByIpo = new Map<number, number>();
+  for (const r of rules.data ?? []) {
+    if (r.ipo_id != null && r.active) {
+      rulesByIpo.set(r.ipo_id, (rulesByIpo.get(r.ipo_id) ?? 0) + 1);
+    }
+  }
+
+  const term = search.trim().toLowerCase();
+  const visible = (data ?? []).filter(
+    (i) =>
+      !term ||
+      i.company_name.toLowerCase().includes(term) ||
+      i.symbol.toLowerCase().includes(term),
+  );
+
+  const lastDay = visible.filter((i) => i.is_last_day);
 
   return (
     <div className="container">
@@ -68,6 +110,16 @@ export function Dashboard({ user }: { user: User | null }) {
           5:00 PM IST.
         </div>
       )}
+
+      <div className="search">
+        <input
+          type="text"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="Search by company or symbol…"
+          aria-label="Search IPOs"
+        />
+      </div>
 
       <div className="filters">
         {FILTERS.map((f) => (
@@ -132,25 +184,51 @@ export function Dashboard({ user }: { user: User | null }) {
         </div>
       )}
 
-      {data && data.length === 0 && (
+      {data && visible.length === 0 && (
         <div className="empty">
-          No IPOs match this filter.
-          {status === "OPEN" && " There may be none open right now — try Upcoming."}
+          {term ? (
+            <>
+              Nothing matches “{search}”.{" "}
+              <button className="btn secondary small" onClick={() => setSearch("")}>
+                Clear search
+              </button>
+            </>
+          ) : (
+            <>
+              No IPOs match this filter.
+              {status === "OPEN" && " There may be none open right now — try Upcoming."}
+            </>
+          )}
         </div>
       )}
 
-      {data && data.length > 0 && (
+      {visible.length > 0 && (
         <div className="grid">
-          {data.map((ipo) => (
+          {visible.map((ipo) => (
             <IpoCard
               key={ipo.id}
               ipo={ipo}
               signedIn={!!user}
+              reminderCount={rulesByIpo.get(ipo.id) ?? 0}
               onToggleWatch={(i) => toggleWatch.mutate(i)}
+              onRemind={(i) => setRemindFor(i)}
             />
           ))}
         </div>
       )}
+
+      {remindFor && (
+        <ReminderDialog
+          ipo={remindFor}
+          config={config}
+          onClose={() => {
+            setRemindFor(null);
+            setToast("Reminder settings saved");
+          }}
+        />
+      )}
+
+      {toast && <div className="toast">{toast}</div>}
 
       <div className="disclaimer">
         <strong>Informational only — not investment advice.</strong> Subscription figures come

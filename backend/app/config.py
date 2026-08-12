@@ -39,6 +39,10 @@ class Settings(BaseSettings):
     # "lax"/"none"/"strict" to force it.
     session_cookie_samesite: str = "auto"
 
+    # --- Google Sign-In (optional; magic link remains as a fallback) ---
+    google_client_id: str = ""
+    google_client_secret: str = ""
+
     # --- Internal task endpoint ---
     # The GitHub Actions cron presents this in X-Internal-Token to trigger a poll.
     internal_task_token: str = "dev-internal-token"

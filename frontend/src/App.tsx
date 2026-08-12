@@ -66,18 +66,18 @@ export default function App() {
     <>
       <Nav signedIn={!!user} onSignOut={signOut} />
       <Routes>
-        <Route path="/" element={<Dashboard user={user ?? null} />} />
+        <Route path="/" element={<Dashboard user={user ?? null} config={config} />} />
         <Route path="/ipo/:symbol" element={<IpoDetailPage />} />
-        <Route path="/login" element={<Login />} />
+        <Route path="/login" element={<Login config={config} />} />
         <Route
           path="/auth/verify"
           element={<Verify onSignedIn={() => queryClient.invalidateQueries()} />}
         />
         <Route
           path="/alerts"
-          element={user ? <Alerts user={user} config={config} /> : <Login />}
+          element={user ? <Alerts user={user} config={config} /> : <Login config={config} />}
         />
-        <Route path="/inbox" element={user ? <Inbox /> : <Login />} />
+        <Route path="/inbox" element={user ? <Inbox /> : <Login config={config} />} />
         <Route path="*" element={<div className="container empty">Page not found.</div>} />
       </Routes>
     </>

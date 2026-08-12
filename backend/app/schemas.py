@@ -81,6 +81,8 @@ class UserOut(ORMModel):
     id: int
     email: str
     timezone: str
+    display_name: str | None = None
+    avatar_url: str | None = None
 
 
 # --------------------------------------------------------------------------- #

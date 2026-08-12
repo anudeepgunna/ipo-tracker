@@ -15,10 +15,14 @@ function closingLabel(ipo: Ipo): string | null {
 export function IpoCard({
   ipo,
   onToggleWatch,
+  onRemind,
+  reminderCount = 0,
   signedIn,
 }: {
   ipo: Ipo;
   onToggleWatch?: (ipo: Ipo) => void;
+  onRemind?: (ipo: Ipo) => void;
+  reminderCount?: number;
   signedIn: boolean;
 }) {
   const total = ipo.subscription?.TOTAL ?? null;
@@ -41,15 +45,32 @@ export function IpoCard({
           </Link>
           <div className="ipo-symbol">{ipo.symbol}</div>
         </div>
-        {signedIn && onToggleWatch && (
-          <button
-            className="btn secondary small"
-            onClick={() => onToggleWatch(ipo)}
-            title={ipo.watchlisted ? "Remove from watchlist" : "Add to watchlist"}
-            aria-label={ipo.watchlisted ? "Remove from watchlist" : "Add to watchlist"}
-          >
-            {ipo.watchlisted ? "★" : "☆"}
-          </button>
+        {signedIn && (
+          <div className="card-actions">
+            {onToggleWatch && (
+              <button
+                className="btn secondary small"
+                onClick={() => onToggleWatch(ipo)}
+                title={ipo.watchlisted ? "Remove from watchlist" : "Add to watchlist"}
+                aria-label={ipo.watchlisted ? "Remove from watchlist" : "Add to watchlist"}
+              >
+                {ipo.watchlisted ? "★" : "☆"}
+              </button>
+            )}
+            {onRemind && ipo.status !== "LISTED" && (
+              <button
+                className={`bell${reminderCount > 0 ? " on" : ""}`}
+                onClick={() => onRemind(ipo)}
+                title={
+                  reminderCount > 0
+                    ? `${reminderCount} reminder${reminderCount > 1 ? "s" : ""} set`
+                    : "Set a reminder"
+                }
+              >
+                {reminderCount > 0 ? `🔔 ${reminderCount}` : "🔔"}
+              </button>
+            )}
+          </div>
         )}
       </div>
 

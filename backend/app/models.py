@@ -66,6 +66,12 @@ class RuleType(str, enum.Enum):
     LISTING_DAY = "LISTING_DAY"
     GMP_ABOVE = "GMP_ABOVE"
     SUBSCRIPTION_ABOVE = "SUBSCRIPTION_ABOVE"
+    # Fires once per day for the whole subscription window, so an IPO you meant
+    # to apply to can't quietly slip past.
+    DAILY_UNTIL_CLOSE = "DAILY_UNTIL_CLOSE"
+    # A day's warning: UPI mandates must be approved before the 17:00 cutoff on
+    # the final day, which is too late to start arranging funds.
+    DAY_BEFORE_CLOSE = "DAY_BEFORE_CLOSE"
 
 
 class NotificationStatus(str, enum.Enum):
@@ -171,6 +177,11 @@ class User(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     email: Mapped[str] = mapped_column(String(255), unique=True, index=True)
     timezone: Mapped[str] = mapped_column(String(64), default="Asia/Kolkata")
+    # Populated when the account signs in through Google; magic-link users keep
+    # these null. Both routes resolve to the same account by email.
+    display_name: Mapped[str | None] = mapped_column(String(255))
+    avatar_url: Mapped[str | None] = mapped_column(Text)
+    google_sub: Mapped[str | None] = mapped_column(String(64), unique=True, index=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
     channels: Mapped[list[NotificationChannel]] = relationship(

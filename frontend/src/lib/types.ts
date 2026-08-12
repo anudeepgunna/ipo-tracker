@@ -70,6 +70,8 @@ export interface User {
   id: number;
   email: string;
   timezone: string;
+  display_name?: string | null;
+  avatar_url?: string | null;
 }
 
 export interface AlertRule {
@@ -108,4 +110,6 @@ export interface ServerConfig {
   channels: Record<ChannelName, boolean>;
   vapid_public_key: string | null;
   gmp_provider: string;
+  google_sign_in: boolean;
+  api_base_url: string;
 }

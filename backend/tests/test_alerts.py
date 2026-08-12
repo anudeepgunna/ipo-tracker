@@ -299,6 +299,106 @@ async def test_alert_body_carries_what_you_need_to_act(session):
     assert note.url.endswith("/#/ipo/SHIPROCKET")
 
 
+# --------------------------------------------------------------------------- #
+# Recurring cadences
+# --------------------------------------------------------------------------- #
+
+
+async def test_daily_until_close_fires_once_per_day_across_the_window(session):
+    """One reminder per day from open through close - and no more than one."""
+    await _setup(session, rule_type=RuleType.DAILY_UNTIL_CLOSE, fire_hours_ist=[10])
+
+    for day in (date(2026, 8, 12), date(2026, 8, 13), CLOSE_DAY):
+        # Poll every 15 minutes across the whole slot, as the cron does.
+        for minute in (0, 15, 30, 45):
+            await evaluate_rules(session, now=at(10, minute, day=day))
+
+    assert await _count(session) == 3  # 12th, 13th, 14th - one each
+
+
+async def test_daily_until_close_is_silent_outside_the_window(session):
+    await _setup(session, rule_type=RuleType.DAILY_UNTIL_CLOSE, fire_hours_ist=[10])
+    await evaluate_rules(session, now=at(10, 0, day=date(2026, 8, 11)))  # before open
+    await evaluate_rules(session, now=at(10, 0, day=date(2026, 8, 15)))  # after close
+    assert await _count(session) == 0
+
+
+async def test_daily_until_close_respects_the_cutoff_on_the_final_day(session):
+    """The last day still can't nag after applications shut at 17:00."""
+    await _setup(session, rule_type=RuleType.DAILY_UNTIL_CLOSE, fire_hours_ist=[18])
+    await evaluate_rules(session, now=at(18, 0, day=CLOSE_DAY))
+    assert await _count(session) == 0
+
+    # An earlier day has no such cutoff - you can still act tomorrow.
+    await evaluate_rules(session, now=at(18, 0, day=date(2026, 8, 12)))
+    assert await _count(session) == 1
+
+
+async def test_daily_until_close_labels_urgency(session):
+    await _setup(session, rule_type=RuleType.DAILY_UNTIL_CLOSE, fire_hours_ist=[10])
+    await evaluate_rules(session, now=at(10, 0, day=date(2026, 8, 12)))
+    await evaluate_rules(session, now=at(10, 0, day=date(2026, 8, 13)))
+    await evaluate_rules(session, now=at(10, 0, day=CLOSE_DAY))
+
+    from sqlalchemy import select
+
+    titles = (
+        (await session.execute(select(Notification.title).order_by(Notification.id)))
+        .scalars()
+        .all()
+    )
+    assert "2 days left" in titles[0]
+    assert "closes tomorrow" in titles[1]
+    assert "LAST DAY" in titles[2]  # escalates on the final day
+
+
+async def test_day_before_close_fires_exactly_once_the_day_before(session):
+    await _setup(session, rule_type=RuleType.DAY_BEFORE_CLOSE, fire_hours_ist=[10])
+
+    await evaluate_rules(session, now=at(10, 0, day=date(2026, 8, 12)))  # 2 days out
+    assert await _count(session) == 0
+
+    await evaluate_rules(session, now=at(10, 0, day=date(2026, 8, 13)))  # 1 day out
+    await evaluate_rules(session, now=at(10, 30, day=date(2026, 8, 13)))  # re-poll
+    assert await _count(session) == 1
+
+    await evaluate_rules(session, now=at(10, 0, day=CLOSE_DAY))  # close day
+    assert await _count(session) == 1
+
+    from sqlalchemy import select
+
+    title = (await session.execute(select(Notification.title))).scalars().first()
+    assert "closes tomorrow" in title
+
+
+async def test_per_ipo_rule_targets_only_that_ipo(session):
+    """The 'Remind me' button creates a rule scoped to one IPO."""
+    _, ipo, _ = await _setup(session)
+    other = Ipo(
+        symbol="OTHER",
+        exchange="NSE",
+        company_name="Other Limited",
+        board=Board.MAINBOARD,
+        status=IpoStatus.OPEN,
+        open_date=date(2026, 8, 12),
+        close_date=CLOSE_DAY,
+    )
+    session.add(other)
+    await session.flush()
+
+    from sqlalchemy import update
+
+    from app.models import AlertRule as AR
+
+    await session.execute(update(AR).values(ipo_id=ipo.id))
+    await evaluate_rules(session, now=at(10))
+
+    from sqlalchemy import select
+
+    ipo_ids = (await session.execute(select(Notification.ipo_id))).scalars().all()
+    assert set(ipo_ids) == {ipo.id}
+
+
 @pytest.mark.parametrize(
     ("rule_type", "field", "phrase"),
     [
