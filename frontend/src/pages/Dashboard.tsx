@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 
 import { IpoCard } from "../components/IpoCard";
+import { SkeletonGrid } from "../components/Skeleton";
 import { ReminderDialog } from "../components/ReminderDialog";
 import { api } from "../lib/api";
 import type { Ipo, ServerConfig, User } from "../lib/types";
@@ -156,19 +157,21 @@ export function Dashboard({
       </div>
 
       {isLoading && (
-        <div className="empty">
-          {slow ? (
-            <>
-              <p style={{ margin: 0 }}>Waking the server…</p>
-              <p className="muted" style={{ marginTop: 6 }}>
-                The free instance sleeps when idle, so the first load of the day can take
-                up to a minute. Later loads are instant.
-              </p>
-            </>
-          ) : (
-            "Loading IPOs…"
+        <>
+          {slow && (
+            <div className="waking">
+              <span className="waking-spinner" />
+              <div>
+                <strong>Waking the server…</strong>
+                <p className="muted" style={{ margin: "2px 0 0" }}>
+                  The free instance sleeps when idle, so the first load of the day can
+                  take up to a minute. Later loads are instant.
+                </p>
+              </div>
+            </div>
           )}
-        </div>
+          <SkeletonGrid count={6} />
+        </>
       )}
       {error && (
         <div className="empty">
@@ -204,9 +207,10 @@ export function Dashboard({
 
       {visible.length > 0 && (
         <div className="grid">
-          {visible.map((ipo) => (
+          {visible.map((ipo, i) => (
             <IpoCard
               key={ipo.id}
+              index={i}
               ipo={ipo}
               signedIn={!!user}
               reminderCount={rulesByIpo.get(ipo.id) ?? 0}

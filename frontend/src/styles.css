@@ -674,3 +674,402 @@ code {
   .modal { padding: 18px; }
   .nav-inner { gap: 12px; }
 }
+
+/* ========================================================================== */
+/* Motion                                                                     */
+/*                                                                            */
+/* Everything below is decoration. The reduced-motion block at the end of this */
+/* file switches all of it off in one place, so no animation can escape that   */
+/* preference by being added later without a matching opt-out.                */
+/* ========================================================================== */
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* --- Entrance --- */
+@keyframes reveal-up {
+  from {
+    opacity: 0;
+    transform: translateY(14px) scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.reveal {
+  opacity: 0;
+  animation: reveal-up 0.5s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+/* --- Skeletons --- */
+@keyframes shimmer {
+  100% {
+    background-position: 200% 0;
+  }
+}
+.sk {
+  background: linear-gradient(
+    90deg,
+    var(--surface-2) 25%,
+    color-mix(in srgb, var(--surface-2) 55%, var(--border)) 37%,
+    var(--surface-2) 63%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.4s ease-in-out infinite;
+  border-radius: 6px;
+}
+.sk-line {
+  display: block;
+}
+.skeleton-card {
+  pointer-events: none;
+}
+.skeleton-card:hover {
+  transform: none;
+  border-color: var(--border);
+}
+
+/* --- Live status dot --- */
+@keyframes pulse-dot {
+  0%, 100% {
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--good) 60%, transparent);
+  }
+  70% {
+    box-shadow: 0 0 0 6px transparent;
+  }
+}
+.live-dot {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+  margin-right: 5px;
+  vertical-align: middle;
+  animation: pulse-dot 2s infinite;
+}
+
+/* --- Last-day emphasis --- */
+@keyframes edge-glow {
+  0%, 100% {
+    box-shadow: 0 0 0 1px var(--warn), 0 0 0 rgba(0, 0, 0, 0), var(--shadow);
+  }
+  50% {
+    box-shadow: 0 0 0 1px var(--warn),
+      0 0 18px -2px color-mix(in srgb, var(--warn) 55%, transparent), var(--shadow);
+  }
+}
+.ipo-card.last-day {
+  border-color: var(--warn);
+  animation: edge-glow 2.8s ease-in-out infinite;
+}
+
+/* --- Cards --- */
+.ipo-card {
+  position: relative;
+  overflow: hidden;
+  transition:
+    border-color 0.18s ease,
+    transform 0.18s cubic-bezier(0.22, 1, 0.36, 1),
+    box-shadow 0.18s ease;
+}
+/* A light sweep that tracks the top edge on hover — a hint of depth, not a
+   full shine effect, which gets tiring on a grid this dense. */
+.ipo-card::after {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 1px;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    color-mix(in srgb, var(--accent) 70%, transparent),
+    transparent
+  );
+  opacity: 0;
+  transition: opacity 0.25s ease;
+}
+.ipo-card:hover {
+  transform: translateY(-3px);
+  border-color: var(--accent);
+  box-shadow: 0 10px 28px -12px color-mix(in srgb, var(--accent) 45%, transparent), var(--shadow);
+}
+.ipo-card:hover::after {
+  opacity: 1;
+}
+
+.card-footer {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+  margin-top: auto;
+}
+
+/* --- Score ring --- */
+.score-ring {
+  position: relative;
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+}
+.score-ring svg {
+  display: block;
+}
+.score-ring-label {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  line-height: 1.05;
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+}
+.score-empty {
+  flex: 0 0 auto;
+  width: 62px;
+  height: 62px;
+  border-radius: 50%;
+  border: 2px dashed var(--border);
+  display: grid;
+  place-items: center;
+  text-align: center;
+  padding: 6px;
+}
+
+/* --- Numbers --- */
+.stat-value.hot {
+  color: var(--good);
+}
+.flame {
+  margin-left: 4px;
+  font-size: 12px;
+  display: inline-block;
+  animation: flicker 1.8s ease-in-out infinite;
+}
+@keyframes flicker {
+  0%, 100% { transform: scale(1) rotate(-2deg); }
+  50% { transform: scale(1.15) rotate(2deg); }
+}
+
+/* --- Countdown --- */
+.countdown {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 8px 11px;
+  border-radius: 9px;
+  background: var(--warn-soft);
+  color: var(--warn);
+  border: 1px solid color-mix(in srgb, var(--warn) 40%, transparent);
+  font-size: 13px;
+}
+.countdown.compact {
+  padding: 6px 10px;
+  font-size: 12px;
+}
+.countdown-label {
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+.countdown-time {
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+.countdown-time b {
+  font-weight: 700;
+}
+.countdown-time i {
+  font-style: normal;
+  opacity: 0.65;
+  margin: 0 3px 0 1px;
+  font-size: 0.85em;
+}
+.countdown.urgent {
+  background: var(--bad-soft);
+  color: var(--bad);
+  border-color: color-mix(in srgb, var(--bad) 45%, transparent);
+  animation: urgent-pulse 1.6s ease-in-out infinite;
+}
+@keyframes urgent-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.72; }
+}
+.countdown.expired {
+  background: var(--surface-2);
+  color: var(--text-dim);
+  border-color: var(--border);
+}
+
+/* --- Buttons --- */
+.icon-toggle {
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 4px 9px;
+  font-size: 15px;
+  line-height: 1.2;
+  cursor: pointer;
+  color: var(--text-dim);
+  transition: transform 0.15s cubic-bezier(0.34, 1.56, 0.64, 1), color 0.15s, border-color 0.15s;
+}
+.icon-toggle:hover {
+  transform: scale(1.12);
+  border-color: var(--warn);
+  color: var(--warn);
+}
+.icon-toggle.on {
+  color: var(--warn);
+  border-color: var(--warn);
+  background: var(--warn-soft);
+}
+
+.bell {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+.bell:hover .bell-icon {
+  animation: ring 0.6s ease-in-out;
+}
+@keyframes ring {
+  0%, 100% { transform: rotate(0); }
+  20% { transform: rotate(14deg); }
+  40% { transform: rotate(-12deg); }
+  60% { transform: rotate(8deg); }
+  80% { transform: rotate(-5deg); }
+}
+
+.btn {
+  transition: filter 0.15s ease, transform 0.12s ease, box-shadow 0.15s ease;
+}
+.btn:not(:disabled):hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 16px -8px color-mix(in srgb, var(--accent) 80%, transparent);
+}
+.btn:not(:disabled):active {
+  transform: translateY(0);
+}
+.chip {
+  transition: background 0.15s, color 0.15s, border-color 0.15s, transform 0.12s;
+}
+.chip:active {
+  transform: scale(0.96);
+}
+
+/* --- Headline gradient --- */
+h1 {
+  background: linear-gradient(
+    100deg,
+    var(--text) 20%,
+    color-mix(in srgb, var(--accent) 85%, var(--text)) 100%
+  );
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  width: fit-content;
+}
+
+/* --- Alert banner --- */
+.alert-banner {
+  position: relative;
+  overflow: hidden;
+}
+.alert-banner::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    color-mix(in srgb, var(--warn) 22%, transparent),
+    transparent
+  );
+  transform: translateX(-100%);
+  animation: sweep 3.5s ease-in-out infinite;
+}
+@keyframes sweep {
+  60%, 100% { transform: translateX(100%); }
+}
+
+/* --- Inputs --- */
+input[type="text"],
+input[type="email"],
+input[type="number"],
+select {
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+input:focus-visible,
+select:focus-visible {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 22%, transparent);
+}
+.btn:focus-visible,
+.chip:focus-visible,
+.bell:focus-visible,
+.icon-toggle:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* ========================================================================== */
+/* One switch for all of the above.                                           */
+/* ========================================================================== */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+  .reveal {
+    opacity: 1;
+  }
+  .ipo-card:hover {
+    transform: none;
+  }
+}
+
+/* --- Cold-start banner --- */
+.waking {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 13px 16px;
+  border-radius: var(--radius);
+  background: var(--accent-soft);
+  border: 1px solid color-mix(in srgb, var(--accent) 35%, transparent);
+  margin-bottom: 16px;
+  font-size: 14px;
+}
+.waking-spinner {
+  flex: 0 0 auto;
+  width: 16px;
+  height: 16px;
+  margin-top: 2px;
+  border-radius: 50%;
+  border: 2px solid color-mix(in srgb, var(--accent) 30%, transparent);
+  border-top-color: var(--accent);
+  animation: spin 0.8s linear infinite;
+}
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}

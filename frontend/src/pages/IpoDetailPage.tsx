@@ -1,7 +1,9 @@
 import { useQuery } from "@tanstack/react-query";
 import { Link, useParams } from "react-router-dom";
 
+import { Countdown } from "../components/Countdown";
 import { ScoreBreakdown } from "../components/ScoreMeter";
+import { ScoreRing } from "../components/ScoreRing";
 import { SubscriptionChart } from "../components/SubscriptionChart";
 import { api, formatDate, formatMoney, formatTimes } from "../lib/api";
 
@@ -41,14 +43,27 @@ export function IpoDetailPage() {
       </p>
 
       {ipo.is_last_day && (
-        <div className="alert-banner">
-          ⚠️ Last day to apply — applications typically cut off at 5:00 PM IST.
-        </div>
+        <>
+          <div className="alert-banner">
+            ⚠️ Last day to apply — applications typically cut off at 5:00 PM IST.
+          </div>
+          <div style={{ marginBottom: 20 }}>
+            <Countdown closeDate={ipo.close_date} />
+          </div>
+        </>
       )}
 
       <div className="stack">
-        <div className="card">
-          <h2>Issue details</h2>
+        <div className="card reveal">
+          <div style={{ display: "flex", gap: 16, alignItems: "center", marginBottom: 14 }}>
+            <ScoreRing score={ipo.score} size={72} stroke={7} />
+            <div>
+              <h2 style={{ margin: 0 }}>Issue details</h2>
+              <p className="muted" style={{ margin: "2px 0 0", fontSize: 13 }}>
+                Listing outlook shown left — full breakdown below.
+              </p>
+            </div>
+          </div>
           <div className="stats" style={{ gridTemplateColumns: "repeat(auto-fit,minmax(150px,1fr))" }}>
             <div>
               <div className="stat-label">Price band</div>
