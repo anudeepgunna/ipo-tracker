@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Link, useParams } from "react-router-dom";
 
 import { Countdown } from "../components/Countdown";
+import { LotCalculator } from "../components/LotCalculator";
 import { ScoreBreakdown } from "../components/ScoreMeter";
 import { ScoreRing } from "../components/ScoreRing";
 import { SubscriptionChart } from "../components/SubscriptionChart";
@@ -176,6 +177,8 @@ export function IpoDetailPage() {
             <p className="muted">Bidding has not opened yet.</p>
           )}
         </div>
+
+        <LotCalculator ipo={ipo} />
 
         <div className="card">
           <h2>Subscription over time</h2>

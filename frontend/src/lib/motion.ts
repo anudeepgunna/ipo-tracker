@@ -125,3 +125,103 @@ export function useCutoffCountdown(
     seconds: Math.floor((remaining % 60_000) / 1000),
   };
 }
+
+/**
+ * Reveals elements as they scroll into view.
+ *
+ * Uses IntersectionObserver rather than scroll listeners: the browser does the
+ * intersection maths off the main thread, so a long grid doesn't cost a layout
+ * calculation on every scroll frame. Each element is unobserved once shown, so
+ * content never re-animates when you scroll back up — which reads as a glitch
+ * rather than an effect.
+ */
+export function useScrollReveal<T extends HTMLElement = HTMLDivElement>() {
+  const ref = useRef<T | null>(null);
+  const [shown, setShown] = useState(false);
+  const reduced = useReducedMotion();
+
+  useEffect(() => {
+    if (reduced) {
+      setShown(true);
+      return;
+    }
+    const node = ref.current;
+    if (!node) return;
+
+    // Already on screen at mount (above the fold): show immediately, no flash.
+    const rect = node.getBoundingClientRect();
+    if (rect.top < window.innerHeight) {
+      setShown(true);
+      return;
+    }
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          setShown(true);
+          observer.disconnect();
+        }
+      },
+      // Trigger slightly before the element reaches the viewport edge, so it has
+      // finished animating by the time it is properly in view.
+      { rootMargin: "0px 0px -60px 0px", threshold: 0.05 },
+    );
+
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, [reduced]);
+
+  return { ref, shown };
+}
+
+/** Fraction of the page scrolled, 0–1, for the reading-progress bar. */
+export function useScrollProgress(): number {
+  const [progress, setProgress] = useState(0);
+
+  useEffect(() => {
+    let frame = 0;
+    const onScroll = () => {
+      // Coalesce to one update per frame; scroll fires far more often than paint.
+      if (frame) return;
+      frame = requestAnimationFrame(() => {
+        frame = 0;
+        const max = document.documentElement.scrollHeight - window.innerHeight;
+        setProgress(max > 0 ? Math.min(window.scrollY / max, 1) : 0);
+      });
+    };
+    onScroll();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    window.addEventListener("resize", onScroll);
+    return () => {
+      window.removeEventListener("scroll", onScroll);
+      window.removeEventListener("resize", onScroll);
+      if (frame) cancelAnimationFrame(frame);
+    };
+  }, []);
+
+  return progress;
+}
+
+/** True once the page has scrolled past `offset` — for nav shrink / back-to-top. */
+export function useScrolledPast(offset = 240): boolean {
+  const [past, setPast] = useState(false);
+
+  useEffect(() => {
+    let frame = 0;
+    const onScroll = () => {
+      if (frame) return;
+      frame = requestAnimationFrame(() => {
+        frame = 0;
+        setPast(window.scrollY > offset);
+      });
+    };
+    onScroll();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => {
+      window.removeEventListener("scroll", onScroll);
+      if (frame) cancelAnimationFrame(frame);
+    };
+  }, [offset]);
+
+  return past;
+}

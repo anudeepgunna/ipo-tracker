@@ -19,8 +19,13 @@
   --shadow: 0 1px 2px rgba(15, 23, 42, 0.06), 0 4px 12px rgba(15, 23, 42, 0.04);
 }
 
+/* Dark palette, defined once and applied from two places: the system
+   preference, and an explicit choice via data-theme. Guarding the media query
+   with :not([data-theme="light"]) is what lets someone on a dark OS force light
+   mode — without it the media query would win and the toggle would only work
+   in one direction. */
 @media (prefers-color-scheme: dark) {
-  :root {
+  :root:not([data-theme="light"]) {
     --bg: #0b1120;
     --surface: #131c31;
     --surface-2: #1b2540;
@@ -37,6 +42,24 @@
     --bad-soft: #4c1414;
     --shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 4px 14px rgba(0, 0, 0, 0.3);
   }
+}
+
+:root[data-theme="dark"] {
+  --bg: #0b1120;
+  --surface: #131c31;
+  --surface-2: #1b2540;
+  --border: #26324d;
+  --text: #e8edf7;
+  --text-dim: #93a2bd;
+  --accent: #60a5fa;
+  --accent-soft: #1e3a68;
+  --good: #4ade80;
+  --good-soft: #14532d;
+  --warn: #fbbf24;
+  --warn-soft: #4a3208;
+  --bad: #f87171;
+  --bad-soft: #4c1414;
+  --shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 4px 14px rgba(0, 0, 0, 0.3);
 }
 
 * {
@@ -1072,4 +1095,283 @@ select:focus-visible {
 }
 @keyframes spin {
   to { transform: rotate(360deg); }
+}
+
+/* ========================================================================== */
+/* Scroll chrome                                                              */
+/* ========================================================================== */
+
+.scroll-progress {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  z-index: 60;
+  pointer-events: none;
+}
+.scroll-progress-bar {
+  height: 100%;
+  transform-origin: 0 50%;
+  background: linear-gradient(90deg, var(--accent), var(--good));
+  /* Transform-only, so scrolling never triggers layout. */
+  will-change: transform;
+}
+
+.nav {
+  transition: padding 0.25s ease, box-shadow 0.25s ease;
+}
+.nav.condensed .nav-inner {
+  padding-top: 7px;
+  padding-bottom: 7px;
+}
+.nav.condensed {
+  box-shadow: 0 4px 20px -8px rgba(0, 0, 0, 0.28);
+}
+
+.back-to-top {
+  position: fixed;
+  right: 22px;
+  bottom: 22px;
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  font-size: 17px;
+  cursor: pointer;
+  box-shadow: var(--shadow);
+  opacity: 0;
+  transform: translateY(14px) scale(0.9);
+  pointer-events: none;
+  transition: opacity 0.22s ease, transform 0.22s cubic-bezier(0.34, 1.56, 0.64, 1);
+  z-index: 55;
+}
+.back-to-top.visible {
+  opacity: 1;
+  transform: none;
+  pointer-events: auto;
+}
+.back-to-top:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+/* --- Scroll-revealed sections --- */
+.ipo-section {
+  margin-bottom: 34px;
+  opacity: 0;
+  transform: translateY(22px);
+  transition: opacity 0.55s ease, transform 0.55s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.ipo-section.in {
+  opacity: 1;
+  transform: none;
+}
+.section-head {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 14px;
+  padding-bottom: 9px;
+  border-bottom: 1px solid var(--border);
+}
+.section-head h2 {
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  font-size: 16px;
+  letter-spacing: -0.01em;
+}
+.section-count {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-dim);
+  background: var(--surface-2);
+  border-radius: 999px;
+  padding: 2px 8px;
+  font-variant-numeric: tabular-nums;
+}
+.section-hint {
+  font-size: 12px;
+}
+
+/* ========================================================================== */
+/* Stats strip                                                                */
+/* ========================================================================== */
+
+.stats-strip {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 12px;
+  margin-bottom: 22px;
+}
+.stat-tile {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 14px 16px;
+  position: relative;
+  overflow: hidden;
+  transition: transform 0.18s cubic-bezier(0.22, 1, 0.36, 1), border-color 0.18s;
+}
+.stat-tile:hover {
+  transform: translateY(-2px);
+  border-color: var(--accent);
+}
+/* A tinted left edge carries the tone without colouring the whole tile, which
+   would compete with the cards below for attention. */
+.stat-tile::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 3px;
+  background: var(--border);
+}
+.stat-tile.warn::before { background: var(--warn); }
+.stat-tile.good::before { background: var(--good); }
+.stat-tile-value {
+  font-size: 26px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.15;
+}
+.stat-tile.warn .stat-tile-value { color: var(--warn); }
+.stat-tile.good .stat-tile-value { color: var(--good); }
+.stat-tile-label {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-dim);
+  margin-top: 2px;
+  font-weight: 600;
+}
+
+/* ========================================================================== */
+/* Toolbar                                                                    */
+/* ========================================================================== */
+
+.toolbar {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 14px;
+  flex-wrap: wrap;
+}
+.search-input {
+  flex: 1 1 260px;
+  max-width: 380px;
+}
+.sort-select {
+  flex: 0 0 auto;
+  width: auto;
+  min-width: 170px;
+  cursor: pointer;
+}
+.filter-sep {
+  width: 1px;
+  align-self: stretch;
+  background: var(--border);
+  margin: 2px 4px;
+}
+
+/* ========================================================================== */
+/* Theme toggle                                                               */
+/* ========================================================================== */
+
+.theme-toggle {
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  width: 32px;
+  height: 30px;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  font-size: 14px;
+  line-height: 1;
+  transition: border-color 0.15s, transform 0.15s;
+}
+.theme-toggle:hover {
+  border-color: var(--accent);
+  transform: scale(1.06);
+}
+.theme-icon {
+  display: block;
+  animation: pop 0.28s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+@keyframes pop {
+  from { transform: scale(0.6) rotate(-25deg); opacity: 0; }
+}
+
+/* ========================================================================== */
+/* Lot calculator                                                             */
+/* ========================================================================== */
+
+.calc-result {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  flex-wrap: wrap;
+  padding: 14px 16px;
+  border-radius: var(--radius);
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  margin: 14px 0 12px;
+}
+.calc-lots {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+}
+.calc-lots-num {
+  font-size: 40px;
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: -0.03em;
+  color: var(--accent);
+  font-variant-numeric: tabular-nums;
+}
+.calc-detail {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
+  gap: 12px 20px;
+  flex: 1 1 260px;
+}
+.calc-detail > div {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+.calc-detail span {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.calc-detail strong {
+  font-size: 15px;
+  font-variant-numeric: tabular-nums;
+}
+
+@media (max-width: 640px) {
+  .stats-strip { grid-template-columns: repeat(2, 1fr); }
+  .toolbar { flex-direction: column; }
+  .search-input, .sort-select { max-width: none; width: 100%; }
+  .back-to-top { right: 14px; bottom: 14px; }
+}
+
+/* Scroll-revealed content must not stay invisible when motion is off. */
+@media (prefers-reduced-motion: reduce) {
+  .ipo-section {
+    opacity: 1;
+    transform: none;
+  }
+  .back-to-top.visible {
+    transform: none;
+  }
 }

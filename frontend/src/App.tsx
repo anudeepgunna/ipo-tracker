@@ -2,7 +2,10 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { Link, Route, Routes, useLocation } from "react-router-dom";
 
+import { BackToTop, ScrollProgress } from "./components/ScrollChrome";
+import { ThemeToggle } from "./components/ThemeToggle";
 import { api } from "./lib/api";
+import { useScrolledPast } from "./lib/motion";
 import { takePending } from "./lib/pendingReminder";
 import { Alerts } from "./pages/Alerts";
 import { Dashboard } from "./pages/Dashboard";
@@ -13,14 +16,16 @@ import { Login, Verify } from "./pages/Login";
 function Nav({ signedIn, onSignOut }: { signedIn: boolean; onSignOut: () => void }) {
   const { pathname } = useLocation();
   const isActive = (path: string) => (pathname === path ? "active" : "");
+  const condensed = useScrolledPast(60);
 
   return (
-    <nav className="nav">
+    <nav className={`nav${condensed ? " condensed" : ""}`}>
       <div className="nav-inner">
         <Link to="/" className="brand">
           IPO Tracker
         </Link>
         <div className="nav-links">
+          <ThemeToggle />
           <Link to="/" className={isActive("/")}>
             Dashboard
           </Link>
@@ -99,6 +104,7 @@ export default function App() {
 
   return (
     <>
+      <ScrollProgress />
       <Nav signedIn={!!user} onSignOut={signOut} />
       {replayToast && <div className="toast">{replayToast}</div>}
       <Routes>
@@ -116,6 +122,7 @@ export default function App() {
         <Route path="/inbox" element={user ? <Inbox /> : <Login config={config} />} />
         <Route path="*" element={<div className="container empty">Page not found.</div>} />
       </Routes>
+      <BackToTop />
     </>
   );
 }
