@@ -74,6 +74,28 @@ async def consume_magic_token(session: AsyncSession, raw_token: str) -> User:
         session.add(user)
         await session.flush()
 
+    # Clicking a link sent to this address proves control of it, so any pending
+    # email destination for the same address becomes verified. Without this a
+    # public reminder sign-up would confirm nothing and never deliver.
+    from app.models import Channel, NotificationChannel
+
+    pending = (
+        (
+            await session.execute(
+                select(NotificationChannel).where(
+                    NotificationChannel.user_id == user.id,
+                    NotificationChannel.channel == Channel.EMAIL,
+                    NotificationChannel.verified_at.is_(None),
+                )
+            )
+        )
+        .scalars()
+        .all()
+    )
+    for channel in pending:
+        if channel.destination.lower() == record.email.lower():
+            channel.verified_at = now
+
     await session.commit()
     return user
 

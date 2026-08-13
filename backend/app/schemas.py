@@ -77,6 +77,14 @@ class MagicLinkRequest(BaseModel):
     email: EmailStr
 
 
+class SubscribeIn(BaseModel):
+    """Public reminder sign-up from an IPO card."""
+
+    email: EmailStr
+    ipo_id: int
+    cadences: list[RuleType] = Field(default_factory=lambda: [RuleType.LAST_DAY])
+
+
 class UserOut(ORMModel):
     id: int
     email: str

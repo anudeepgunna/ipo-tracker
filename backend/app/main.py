@@ -8,7 +8,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import settings
-from app.routers import auth, google_auth, internal, ipos, me, telegram
+from app.routers import auth, google_auth, internal, ipos, me, subscribe, telegram
 
 logging.basicConfig(
     level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s"
@@ -37,6 +37,7 @@ app.include_router(ipos.router)
 app.include_router(auth.router)
 app.include_router(google_auth.router)
 app.include_router(me.router)
+app.include_router(subscribe.router)
 app.include_router(telegram.router)
 app.include_router(internal.router)
 

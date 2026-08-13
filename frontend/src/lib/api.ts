@@ -80,6 +80,17 @@ export const api = {
     ),
   telegramPoll: () => request<{ linked: number }>("/api/telegram/poll-updates", { method: "POST" }),
 
+  // Public: set reminders without an account (email confirmed afterwards).
+  subscribe: (body: { email: string; ipo_id: number; cadences: string[] }) =>
+    request<{
+      ok: boolean;
+      created?: number;
+      sent?: boolean;
+      error?: string;
+      message?: string;
+      dev_link?: string;
+    }>("/api/alerts/subscribe", { method: "POST", body: JSON.stringify(body) }),
+
   // --- rules ---
   rules: () => request<AlertRule[]>("/api/me/rules"),
   createRule: (rule: Record<string, unknown>) =>

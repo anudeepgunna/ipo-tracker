@@ -45,33 +45,33 @@ export function IpoCard({
           </Link>
           <div className="ipo-symbol">{ipo.symbol}</div>
         </div>
-        {signedIn && (
-          <div className="card-actions">
-            {onToggleWatch && (
-              <button
-                className="btn secondary small"
-                onClick={() => onToggleWatch(ipo)}
-                title={ipo.watchlisted ? "Remove from watchlist" : "Add to watchlist"}
-                aria-label={ipo.watchlisted ? "Remove from watchlist" : "Add to watchlist"}
-              >
-                {ipo.watchlisted ? "★" : "☆"}
-              </button>
-            )}
-            {onRemind && ipo.status !== "LISTED" && (
-              <button
-                className={`bell${reminderCount > 0 ? " on" : ""}`}
-                onClick={() => onRemind(ipo)}
-                title={
-                  reminderCount > 0
-                    ? `${reminderCount} reminder${reminderCount > 1 ? "s" : ""} set`
-                    : "Set a reminder"
-                }
-              >
-                {reminderCount > 0 ? `🔔 ${reminderCount}` : "🔔"}
-              </button>
-            )}
-          </div>
-        )}
+        <div className="card-actions">
+          {signedIn && onToggleWatch && (
+            <button
+              className="btn secondary small"
+              onClick={() => onToggleWatch(ipo)}
+              title={ipo.watchlisted ? "Remove from watchlist" : "Add to watchlist"}
+              aria-label={ipo.watchlisted ? "Remove from watchlist" : "Add to watchlist"}
+            >
+              {ipo.watchlisted ? "★" : "☆"}
+            </button>
+          )}
+          {/* Shown signed-out too: the reminder itself is the reason to sign up,
+              so asking for an account first loses people before they see value. */}
+          {onRemind && ipo.status !== "LISTED" && ipo.status !== "CLOSED" && (
+            <button
+              className={`bell${reminderCount > 0 ? " on" : ""}`}
+              onClick={() => onRemind(ipo)}
+              title={
+                reminderCount > 0
+                  ? `${reminderCount} reminder${reminderCount > 1 ? "s" : ""} set`
+                  : "Remind me about this IPO"
+              }
+            >
+              {reminderCount > 0 ? `🔔 ${reminderCount}` : "🔔 Remind me"}
+            </button>
+          )}
+        </div>
       </div>
 
       <div className="badges">

@@ -221,10 +221,9 @@ export function Dashboard({
         <ReminderDialog
           ipo={remindFor}
           config={config}
-          onClose={() => {
-            setRemindFor(null);
-            setToast("Reminder settings saved");
-          }}
+          user={user}
+          onClose={() => setRemindFor(null)}
+          onDone={(m) => setToast(m)}
         />
       )}
 

@@ -1,7 +1,9 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useEffect, useState } from "react";
 import { Link, Route, Routes, useLocation } from "react-router-dom";
 
 import { api } from "./lib/api";
+import { takePending } from "./lib/pendingReminder";
 import { Alerts } from "./pages/Alerts";
 import { Dashboard } from "./pages/Dashboard";
 import { Inbox } from "./pages/Inbox";
@@ -62,9 +64,43 @@ export default function App() {
     queryClient.clear();
   };
 
+  // A visitor who picked reminder options and then signed in should come back to
+  // those reminders already created — not to a dashboard that forgot, forcing
+  // them to repeat the choice they just made.
+  const [replayToast, setReplayToast] = useState<string | null>(null);
+  useEffect(() => {
+    if (!user) return;
+    const pending = takePending();
+    if (!pending) return;
+
+    (async () => {
+      try {
+        for (const cadence of pending.cadences) {
+          await api.createRule({
+            rule_type: cadence,
+            ipo_id: pending.ipoId,
+            channels: ["INAPP", "EMAIL"],
+            fire_hours_ist: cadence === "LAST_DAY" ? [10, 15] : [10],
+          });
+        }
+        queryClient.invalidateQueries({ queryKey: ["rules"] });
+        setReplayToast(`Reminder set for ${pending.ipoName}`);
+      } catch {
+        setReplayToast("Signed in, but the reminder could not be saved. Please set it again.");
+      }
+    })();
+  }, [user?.id]);
+
+  useEffect(() => {
+    if (!replayToast) return;
+    const t = setTimeout(() => setReplayToast(null), 3200);
+    return () => clearTimeout(t);
+  }, [replayToast]);
+
   return (
     <>
       <Nav signedIn={!!user} onSignOut={signOut} />
+      {replayToast && <div className="toast">{replayToast}</div>}
       <Routes>
         <Route path="/" element={<Dashboard user={user ?? null} config={config} />} />
         <Route path="/ipo/:symbol" element={<IpoDetailPage />} />
